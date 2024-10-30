@@ -32,6 +32,7 @@
   <script src="static/js/bulma-carousel.min.js"></script>
   <script src="static/js/bulma-slider.min.js"></script>
   <script src="static/js/index.js"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <section class="hero">
@@ -143,27 +144,251 @@
 <!-- Introduction -->
 <section class="section" id="Introduction">
   <div class="container is-max-desktop">
-    <h2 class="title">TODO</h2>
+    <h2 class="title">Guidance + Diffusion👌</h2>
     <div class="content is-medium">
-      TODO
+      State-of-the-art diffusion models are the prevailing approach for generating continuous signals, such as images, audio, and even 3D poses.
+      These models are made even more useful by the mechanisms of classifier-free and classifier-based guidance that enable users to better control the generated samples.      
+      In contrast, for discrete data, autoregressive (AR) models are the go-to approach, but are notoriously difficult to control, given the sequential nature of their generation process that <em>'locks in'</em> tokens during denoising. 
+      Diffusion models, which have a global view of a generated signal at each denoising step, as opposed to AR models which can only plan locally (i.e., one token ahead), are arguably more suitable for controlled generation.
+      Finding a way to bridge the gap to AR's language modeling performance while maintaining the control mechanisms of diffusion modeling would unlock powerful and useful generative modeling tools with widespread applications, especially in scientific domains.
+      <br><br>
+      Recent work on discrete diffusion (e.g., <a href="https://arxiv.org/abs/2406.07524">Sahoo et al., 2024</a>) poses a potential alternative to autoregressive language modeling.
+      The improved performance of non-autoregressive language models inspires a renewed search for guidance mechanisms that, similar to the continuous domain, can unlock high-quality controllable generation for discrete data.
     </div>
   </div>
 </section>
 <!-- End Introduction-->
+
+<!-- Paper abstract -->
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered">
+      <div class="content is-medium">
+        <h2 class="title">Our contributions</h2>
+        <ul>
+          <li>We provide simple and effective discrete classifier-based and classifier-free guidance.</li>
+          <li>We introduce UDLM, a class of discrete diffusion models particularly amenable to guidance, and we derive a tightened ELBO that significantly improves their performance.</li>
+          <li>Across three domains, we demonstrate that discrete guidance yields better controllable generation compared to strong AR baselines and previous diffusion guidance methods.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- End paper abstract -->
+
+<section class="section" id="Discrete Diffusion Models">
+  <div class="container is-max-desktop">
+    <h2 class="title">Discrete Diffusion Models (a brief primer)</h2>
+    <div class="content is-medium">
+      In diffusion, we train a parametric model \(p_\theta\) to undo corruption from latent variables \(\mathbf{z}_t\) (for \(t \in [0, 1]\)) that are produced from a fixed forward noising process defined by \(q\)&nbsp; (<a href="https://arxiv.org/abs/1503.03585">Sohl-Dickstein et al., 2015</a>; <a href="https://arxiv.org/abs/1907.05600">Song & Ermon, 2019</a>; <a href="https://arxiv.org/abs/2006.11239">Ho et al., 2020</a>).
+      Thus, starting from a sample \(\mathbf{z}_{t=1}\) from some limiting distribution \(\boldsymbol{\pi}\), we can iteratively denoise to produce latents \(\mathbf{z}_t, \mathbf{z}_s, \ldots, \mathbf{z}_{t=0}, \mathbf{x}_0\), with \(\mathbf{x}_0\) appearing to have been drawn from the true data distribution for well-trained denoising models.
+      <br>
+      
+      <h4 class="subtitle has-text-centered" style="font-size:1rem;">
+        <img src="static/images/discrete_diffusion.png" alt="Discrete Diffusion" style="width:720px">
+      </h4>
+      The seminal D3PM paper (<a href="https://arxiv.org/abs/2107.03006">Austin et al., 2021</a>) defined a noising process over discrete data via transition matrices \(Q_{t|s}\) whose \((i, j)^{\text{th}}\) entries correspond to the probability of transitioning from the \(i^{\text{th}}\) state at time \(s\) to the \(j^{\text{th}}\) state at time \(t\).
+      This induces a Markov corruption process where we have \(q(\mathbf{z}_t | \mathbf{z}_s) = \mathrm{Cat}(\mathbf{z}_t; Q_{t|s}\mathbf{z}_s)\).
+      <a href="https://arxiv.org/abs/2406.07524">Sahoo et al. (2024)</a> build off this framework to introduce specialized algorithms that are both simpler and more effective than the general D3PM framework.
+      They focus on a specific class of forward processes from D3PM that can be defined as interpolations between clean data and a noisy prior π, and we adopt their notation below:
+      $$q(\mathbf{z}_t \mid \mathbf{x}_0) = \mathrm{Cat}(\mathbf{z}_t; \alpha_t\mathbf{x}_0 + (1 − \alpha_t)\boldsymbol{\pi}),$$
+      where \(\alpha_t = \alpha(t)\) is a noise schedule monotonically decreasing in \(t\).
+      Defining \(\alpha_{t|s} = \alpha_t / \alpha_s\), this class of processes admit the following posteriors
+      $$q(\mathbf{z}_s | \mathbf{z}_t, \mathbf{x}_0) = \mathrm{Cat}\left(\mathbf{z}_s; \frac{[\alpha_{t|s} \mathbf{z}_t + (1 - \alpha_{t|s})\mathbf{1} \boldsymbol{\pi}^\top \mathbf{z}_t]  \odot [\alpha_s \mathbf{x}_0 + (1 - \alpha_s) \boldsymbol{\pi}]}{\alpha_t \mathbf{z}_t^\top \mathbf{x}_0  + (1 - \alpha_t)\mathbf{z}_t^\top\boldsymbol{\pi}} \right).$$
+      Of note, for absorbing-state diffusion, where \(\boldsymbol{\pi} = \boldsymbol{m}\), a one-hot vector at the special \(\texttt{[MASK]}\) token index, <a href="https://arxiv.org/abs/2406.07524">Sahoo et al. (2024)</a> show that when the latent \(\mathbf{z}_t \neq \boldsymbol{m}\) then \(q(\mathbf{z}_s \mid \mathbf{z}_t, \mathbf{x}_0) = \mathrm{Cat}(\mathbf{z}_s; \mathbf{z}_t)\), which reflects the fact that unasked tokens at time \(t\) must remain unmasked for all time \(s < t\).
+      <br><br>
+      Diffusion models are trained to minimize a variational upper bound (NELBO) given by:
+      $$\mathbb{E}_q\Bigg[\underbrace{- \log p_\theta(\mathbf{x}_0 | \mathbf{z}_{t(0)})}_{\normalsize\begin{array}{c}\mathcal{L}_{recons}\end{array}} + \underbrace{\sum_{i=1}^T \mathrm{KL}[q(\mathbf{z}_{s(i)} | \mathbf{z}_{t(i)}, \mathbf{x}_0) \| p_\theta(\mathbf{z}_{s(i)} | \mathbf{z}_{t(i)})]}_{\normalsize\begin{array}{c}\mathcal{L}_{diff}\end{array}}\Bigg] + \underbrace{\mathrm{KL}[q(\mathbf{z}_{t(T)} | \mathbf{x}_0) \| p_\theta(\mathbf{z}_{t(T)})]}_{\normalsize \begin{array}{c}\mathcal{L}_{prior}\end{array}},$$
+      where \(\mathrm{KL}\) refers to the Kullback-Leibler divergence, and the expectation is taken over the noising process.
+      \(\mathcal{L}_{prior}\) refers to the prior regularization term, which is used to ensure that the final latent \(\mathbf{z}_{t(T)}\) is close to the prior distribution. 
+      \(\mathcal{L}_{recons}\) is the reconstruction loss, which measures the negative log-likelihood of the clean data given the latent at time \(t(0)\).
+      Finally, \(\mathcal{L}_{diff}\) is the diffusion loss, which measures the KL divergence between the noised and denoised latents.
+      <br><br>
+      Often we model entire sequences, and not just individual tokens, which we denote as \(\mathbf{x}_0^{(1:L)}\) and \(\mathbf{z}_t^{(1:L)}\) for a sequences clean data and latents of length \(L\), respectively.
+      We assume that the forward noising process factorizes independently across tokens, so that the noising process for a sequence is the product of the noising processes for each token and that the denoising network, when conditioned on a sequence of latent variables, factorizes independently across tokens as well.      
+  </div>
+</section>
+
+<section class="section" id="Why Discrete Diffusion Guidance is Hard">
+  <div class="container is-max-desktop">
+    <h2 class="title">Why Guidance in Discrete Diffusion is Hard</h2>
+    <div class="content is-medium">
+      Current guidance mechanisms for diffusion models rely on Langevin dynamics and computation of the gradient of the log-likelihood with respected to latent variables, as below:
+      $$\begin{aligned}\nabla_{\mathbf{z}_s}\log(p_\theta^\gamma(\mathbf{z}_s\mid \mathbf{z}_t, y)) &= \gamma\nabla_{\mathbf{z}_s}\log(p_\phi(y\mid \mathbf{z_s})) + \nabla_{\mathbf{z}_s}\log(p_\theta(\mathbf{z_s} \mid \mathbf{z}_t)) && \text{classifier-based} \\ \nabla_{\mathbf{z}_s}\log(p_\theta^\gamma(\mathbf{z}_s\mid \mathbf{z}_t, y)) &= \gamma\nabla_{\mathbf{z}_s}\log(p_\theta(\mathbf{z}_s \mid \mathbf{z}_t, y)) + (1-\gamma)\nabla_{\mathbf{z}_s}\log(p_\theta(\mathbf{z}_s\mid\mathbf{z}_t)) && \text{classifier-free},\end{aligned}$$
+      where \(\gamma\) is an inverese temperature parameter that controls the strength of the guidance, \(y\) is the desired ouput class, \(p_\theta\) is the denoising diffusion model (unconditional / conditional), and \(p_\phi\) is a separate classifier model.
+      <br><br>
+      The reliance on the gradient computation blocks the application of these guidance mechanisms to discrete diffusion models, as the gradient of the log-likelihood with respect to the discrete latent variables is not defined.
+    </div>
+  </div>
+</section>
+
+<section class="section" id="Discrete Guidance Mechanisms">
+  <div class="container is-max-desktop">
+    <h2 class="title">Proposed Discrete Guidance Mechanisms</h2>
+    <div class="content is-medium">
+      To overcome the issues of applying gradient-based guidance mechanisms to discrete diffusion models, we propose two mechanisms for discrete guidance that re-weight the probabilities assigned by the denoising model according to a \(\gamma\)-scaled guidance term.
+      <h3 class="subtitle" style="font-size:1.6rem;"><em>Discrete Classifier-free Guidance</em></h3>
+        First, we can achieve classifier-free guidance through a simply derivation that relies on (repeated) applications of Bayes' rule to the tempered distribution \(p_\theta^\gamma(\mathbf{z}_s\mid \mathbf{z}_t, y)\).
+        We train a conditional and unconditonal diffusion model, both of which factorize independently across tokens in a sequence in order to sample each token independently from the following distribution:
+        $$p_\theta^\gamma(\mathbf{z}_s\mid \mathbf{z}_t, y) \propto p_\theta(\mathbf{z}_s\mid \mathbf{z}_t, y)^\gamma\cdot p_\theta(\mathbf{z}_s \mid \mathbf{z}_t)^{(1-\gamma)}.$$
+        That is, we sample each token from a weighted combination of the conditional and unconditional diffusion models.
+        Since both \(p_\theta(\mathbf{z}_s\mid \mathbf{z}_t, y)\) and \(p_\theta(\mathbf{z}_s \mid \mathbf{z}_t)\) are modeled with independent factorization across tokens, we can sample an entire sequence as follows:
+        $$p^\gamma_\theta(\mathbf{z}_s^{(1:L)} \mid _t^{(1:L)}, y) = \prod_{\ell=1}^{L}\frac{1}{Z^{(\ell)}}p_\theta(\mathbf{z}_s^{(\ell)} \mid \mathbf{z}_t^{(1:L)}, y)^\gamma p_\theta(\mathbf{z}_s^{(\ell)}\mid\mathbf{z}_t^{(1:L)})^{(1-\gamma)},$$ 
+        where \(Z^{(\ell)} = \sum_{\mathbf{z}'_{s}}p_\theta(\mathbf{z}'_{s} \mid \mathbf{z}_t^{(1:L)}, y)^\gamma p_\theta(\mathbf{z}'_s\mid\mathbf{z}_t^{(1:L)})^{(1-\gamma)}\) is the per-token partition function.
+      <br><br>
+        We dub this guidance mechanism as <b>D-CFG</b> for <b>D</b>iscerete <b>C</b>lassifier-<b>F</b>ree <b>G</b>uidance.
+      <br><br>
+      <h4 class="subtitle has-text-centered" style="font-size:1rem;">
+        <img src="static/images/discrete_guidance.png" alt="Discrete GUidance" style="width:720px">
+      </h4>
+      <h3 class="subtitle" style="font-size:1.6rem;"><em>Discrete Classifier-based Guidance</em></h3>
+        Extending classifier-based guidance to diffusion models in a similar manner to above is difficult because the guiding classifier need not factorize the same as the diffusion denoising network, which would imply that the classifier needs to be evaluated on exponentially many sequence combinations.
+        We resolve this using factorization assumptions on the decoding model and a Taylor expansion trick.
+        <br><br>
+        To formulate discrete classifier-based guidance, we make the assumption that conditioned on \(\mathbf{z}_t^{(1:L)}\), the tempered distribution from which we want to sample \(p^\gamma(\mathbf{z}_s^{(1:L)} \mid \mathbf{z}_t^{1:L}, y)\) factorizes independently across tokens.
+        Therefore, we can focus on the tempered distirbution of each token \(\mathbf{z}_s^{(\ell)},\) for \(\ell \in 1,\ldots, L\):
+        $$p^\gamma(\mathbf{z}_s^{(\ell)} \mid \mathbf{z}_t^{(1:L)}, y) \propto p(y \mid \mathbf{z}_s^{(\ell)}, \mathbf{z}_t^{(1:L)})^\gamma p(\mathbf{z}_s^{(\ell)} \mid \mathbf{z}_t^{(1:L)}).$$
+        In practice, we can sample from \(p^\gamma(\mathbf{z}_s^{(\ell)} \mid \mathbf{z}_t^{(1:L)}, y)\) by training a classifier on noised latents \(\mathbf{z}_t^{(1:L)}\) for \(t \in [0, 1]\) and use this to model the first term on the right hand side by only evaluating \(p_\phi\) on sequences for which \(\mathbf{z}_s^{(1:L)}\) and \(\mathbf{z}_t^{(1:L)}\) differ by at most the token at position \(\ell\).
+        We will define this set of sequences as \(\tilde{\mathcal{Z}}_\ell(\mathbf{z_t}^{1:L}) = \{\tilde{\mathbf{z}}^{(1:L)} \mid \tilde{\mathbf{z}}^{(\ell')} = \mathbf{z_t}^{(\ell')}\text{ for all }\ell' \neq \ell\}\).
+        We can then sample from the re-normalized distribution:
+        $$p^\gamma_{\phi, \theta}(\mathbf{z}_s^{(\ell)} \mid \mathbf{z}_t^{(1:L)}, y) = \frac{p_\phi(y \mid \tilde{\mathbf{z}}^{(1:L)})^\gamma p_\theta(\mathbf{z}_s^{(\ell)} \mid \mathbf{z}_t^{(1:L)})}{\sum_{\tilde{\mathbf{z}}^{(1:L)}}p_\phi(y \mid \tilde{\mathbf{z}}^{(1:L)})^\gamma p_\theta(\mathbf{z}_s^{(\ell)} \mid \mathbf{z}_t^{(1:L)})}.$$
+        Restricting the summation in the denominator of the equation above to \(\tilde{\mathcal{Z}}_\ell(\mathbf{z}_t^{(1:L)})\) makes normalization tractable.
+        <br><br>
+        Our method can be thought of as an adaptation of the successful FUDGE (<a href="https://arxiv.org/abs/2104.05218">Yang & Klein, 2021</a>) approach, which guides AR generation, to discrete diffusion, similar to how NOS (<a href="https://arxiv.org/abs/2305.20009">Gruver et al., 2024</a>) extended the AR guidance mechanism of PPLM (<a href="https://arxiv.org/abs/1912.02164">Dathathri et al., 2019</a>) to diffusion models.
+        We dub this guidance mechanism as <b>D-CBG</b> for <b>D</b>iscerete <b>C</b>lassifier-<b>B</b>ased <b>G</b>uidance.
+    </div> 
+  </div>
+</section>
+
+<section class="section" id="UDLM">
+  <div class="container is-max-desktop">
+    <h2 class="title">Uniform Discrete Language Models (UDLM)</h2>
+    <div class="content is-medium">
+      While masked diffusion models demonstrate better language modeling compared to other discrete diffusion (<a href="https://arxiv.org/abs/2107.03006">Austin et al. 2021</a>; <a href="https://arxiv.org/abs/2310.16834">Lou et al. 2023</a>), we argue that they are less amenable to guidance, since once a token is unmasked at some time t it remains so for all \(s < t\).
+      In contrast, with uniform noising, intermediate latents can be refined multiple times throughout the denoising process.
+      We therefore revisit categorical uniform noise discrete diffusion, where \(\boldsymbol{\pi} = \boldsymbol{u} = 1/N\), where \(N\) is the size of the vocabulary.
+      Our aim is that by analyzing this class of diffusion models more carefully, we can reduce the gap to absorbing-state and yield performant models that are more easily steered by guidance tools we develop above.
+      <br><br>
+      <b>Uniform Noise Forward Process</b>&nbsp&nbsp
+      We formulate uniform noise diffusion using the interpolating discrete diffusion framework <a href="https://arxiv.org/abs/2406.07524">Sahoo et al. (2024)</a>.
+      When letting \(\boldsymbol{\pi} = \boldsymbol{u}\), the input \(\mathbf{x}\) transitions to a random state with some probability at each time step. 
+      Crucially, after \(\mathbf{x}\) changes once, it can do so again.
+      Formally, when \(\boldsymbol{\pi} = \boldsymbol{u}\), the posterior from above becomes
+      $$q(\mathbf{z}_s \mid \mathbf{z}_t, \mathbf{x}_0) = \mathrm{Cat} \left(\mathbf{z}_s;\frac{N \alpha_t \mathbf{z}_t \odot \mathbf{x}_0 + (\alpha_ts - \alpha_t)\mathbf{z}_t + (\alpha_s - \alpha_t)\mathbf{x}_0 + \frac{(\alpha_s - \alpha_t)(1- \alpha_s)}{N \alpha_s}\boldsymbol{1}}{N \alpha_t\langle \mathbf{z}_t, \mathbf{x}_0\rangle  + 1 - \alpha_t}\right)$$
+
+      <b>Denoising Process</b>&nbsp&nbsp The optimal form for the reverse diffusion process \(p_\theta\) matches the posterior.
+      In fact, setting \(p_\theta\) to the posterior reduces the KL terms in the ELBO to zero.
+      However, setting \(p_\theta\) to exactly the posterior is not possible because it cannot be a function \(\mathbf{x}_0\) (which \(p_\theta\) is generating).
+      Therefore, we introduce a predictive model of the 'clean' data given a noisy latent \(\mathbf{z}_t\) at time \(t\).
+      We use \(\mathbf{x}_\theta\) to parameterize the denoising process as \(p_\theta(\mathbf{z}_s \mid \mathbf{z}_t) = q(\mathbf{z}_s \mid \mathbf{z}_t, \mathbf{x} = \mathbf{x}_\theta)\), yielding:
+      $$p_\theta(\mathbf{z}_s \mid \mathbf{z}_t) = \mathrm{Cat} \left(\mathbf{z}_s;\frac{N\alpha_t \mathbf{z}_t \odot \mathbf{x}_\theta + (\alpha_ts - \alpha_t)\mathbf{z}_t + (\alpha_s - \alpha_t)\mathbf{x}_\theta + \frac{(\alpha_s - \alpha_t)(1- \alpha_s)}{N\alpha_s}\boldsymbol{1}}{N \alpha_t\langle \mathbf{z}_t, \mathbf{x}_\theta\rangle  + 1 - \alpha_t}\right).$$
+      Note that this minimizes the \(\mathcal{L}_{diff}\) precisely when \(\mathbf{x}_\theta = \mathbf{x}_0,\) as desired.
+      <br><br>
+      <b>UDLM</b>&nbsp&nbsp To build towards <b>U</b>niform <b>D</b>iscrete <b>L</b>anguage <b>M</b>odels (UDLM), we derive an improved variational objective by taking \(T\rightarrow\infty\) and analyzing each term \(\mathcal{L}_{recons}, \mathcal{L}_{diff}, \mathcal{L}_{prior}\), introduced above.
+      This yields three improvements: (1) a simple and elegant closed-form expression for the variational bound that is easier to reason about; (2) an analytical reduction of \(\mathcal{L}_{recons}, \mathcal{L}_{prior}\) to zero, which tightens the ELBO; (3) a further tightening via the continuous-time extension of \(\mathcal{L}_{diff}\).
+      Please refer to <a href="TODO add arxiv link">our manuscript</a> for more details about this derivation.
+    </div>
+  </div>
+</section>
+
 
 <!-- Experiments -->
 <section class="section" id="Experiments">
   <div class="container is-max-desktop">
     <h2 class="title">Experiments</h2>
     <div class="content is-medium">
-      TODO
-    </div>
-    <div class="container is-max-desktop">
-      <div class="columns is-centered">
-        <div class="item">
-          <img src="static/images/experiments/TODO.png" alt="TODO"/>
-        </div>
-      </div>
+      <h3 class="subtitle" style="font-size:1.6rem;"><em>Language Modeling Results</em></h3>
+      Our language modeling experiments reveal that (1) contrary to a widely-held belief, <b>uniform noise diffusion can attain state-of-the-art performance</b> on small vocabulary datasets , and that (2) our <b>UDLM is state-of-the-art among uniform noise diffusion models</b>.      
+      <br><br>
+      <table>
+        <caption><em>UDLM performs best in smaller vocabulary regimes. Values correspond to perplexity (PPL; \(\downarrow\)) on various datasets. Best values are <b>bolded.</b></em></caption>
+        <tr>
+          <th>Domain</th>
+          <th>Dataset</th>
+          <th>Vocab. size</th>
+          <th>AR</th>
+          <th>MDLM</th>
+          <th>UDLM</th>
+        </tr>
+        <tr>
+          <td style="border:none"><i>Bio</i></td>
+          <td style="border:none">Species-10</td>
+          <td style="border:none">12</td>
+          <td style="border:none"><strong>2.88</strong></td>
+          <td style="border:none">3.17\(_{\geq}\)</td>
+          <td style="border:none">3.15\(_{\geq}\)</td>
+        </tr>
+        <tr>
+          <td style="border:none"><i>Chem</i></td>
+          <td style="border:none">QM9</td>
+          <td style="border:none">40</td>
+          <td style="border:none">2.19</td>
+          <td style="border:none">2.12\(_{\geq}\)</td>
+          <td style="border:none"><strong>2.02</strong>\(_{\geq}\)</td>
+        </tr>
+        <tr>
+          <td style="border:none"><i>Images</i></td>
+          <td style="border:none">CIFAR-10</td>
+          <td style="border:none">256</td>
+          <td style="border:none">-</td>
+          <td style="border:none"><strong>9.14</strong>\(_{\geq}\)</td>
+          <td style="border:none">11.21\(_{\geq}\)</td>
+        </tr>
+        <tr>
+          <td style="border:none"><i>NLP</i></td>
+          <td style="border:none">text8</td>
+          <td style="border:none">35</td>
+          <td style="border:none"><strong>2.35</strong></td>
+          <td style="border:none">2.62\(_{\geq}\)</td>
+          <td style="border:none">2.71\(_{\geq}\)</td>
+        </tr>
+        <tr>
+          <td style="border:none"></td>
+          <td style="border:none">Amazon</td>
+          <td style="border:none">30,522</td>
+          <td style="border:none"><strong>21.67</strong></td>
+          <td style="border:none">24.93\(_{\geq}\)</td>
+          <td style="border:none">27.27\(_{\geq}\)</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>LM1B</td>
+          <td>30,522</td>
+          <td><strong>22.83</strong></td>
+          <td>31.69\(_{\geq}\)</td>
+          <td>35.35\(_{\geq}\)</td>
+        </tr>
+        <tr></tr>
+      </table>
+
+      <br><br>
+      <table>
+        <caption><em>UDLM outperforms previously reported uniform noise discrete diffusion models on natural language text dataset. Values correspond to bits per character (BPC). Best values are <b>bolded</b>.</em></caption>
+        <tr>
+          <th>Dataset</th>
+          <th>D3PM Uniform</th>
+          <th>SEDD Uniform</th>
+          <th>UDLM</th>
+        </tr>
+        <tr>
+          <td style="border: none;">text8 (BPC \(\downarrow\))</td>
+          <td style="border: none;">1.61</td>
+          <td style="border: none;">1.47</td>
+          <td style="border: none;"><strong>1.44</strong></td>
+        </tr>
+        <tr>
+          <td>LM1B (PPL \(\downarrow\))</td>
+          <td>77.59</td>
+          <td>40.25</td>
+          <td><strong>35.35</strong></td>
+        </tr>
+        <tr></tr>
+      </table>
+
+      <h3 class="subtitle" style="font-size:1.6rem;"><em>Guidance Results</em></h3>
+      Our guidance results indicate that (1) <b>classifier-free guidance is more useful when paired with diffusion models compared to AR</b> and that (2) <b>our proposed D-CBG is the best classifier-based method</b> for discrete guidance, especially when combined with UDLM.
+      <br><br>
+      TODO: Add QM9 guidance results here.
     </div>
   </div>
   <!-- End Experiments-->
@@ -173,9 +398,11 @@
   <div class="container is-max-desktop">
     <h2 class="title">Conclusion</h2>
     <div class="content is-medium">
-      <p>
-        TODO
-      </p>
+      In search of a more controllable diffusion process, in this work, we derived a tight variational bound for uniform noise discrete diffusion, closing the gap to state-of-the-art absorbing-state diffusion models.
+      We also highlighted that contrary to previous findings, in small vocabulary regimes, uniform noise is on par or better than absorbing state.
+      We then demonstrated that straightforward adaptations of classifier-based and classifier-free guidance can offer improved guided generation relative to AR models.
+      We found that with classifier-free mechanisms, diffusion models are more amenable to control without sacrificing quality of generated sequences.
+      We also demonstrated that our classifier-based method is better than previous ones for both AR and diffusion models and is best paired with our UDLM.
     </div>
   </div>
 <!-- End Conclusion-->
