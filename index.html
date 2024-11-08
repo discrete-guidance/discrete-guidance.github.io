@@ -13,7 +13,7 @@
   <!-- <meta property="og:image:width" content="630"/> -->
   <!-- <meta property="og:image:height" content="630"/> -->
 
-  <title>Controllable Discrete Diffusion project page</title>
+  <title>Simple Guidance Mechanisms for Discrete Diffusion project page</title>
   <link rel="icon" type="image/x-icon" href="static/images/favicon.ico">
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
   rel="stylesheet">
@@ -41,21 +41,21 @@
       <div class="columns is-centered">
         <div class="column has-text-centered">
           <h1 class="title is-1 publication-title">
-            Controllable Discrete Diffusion<br>Language Models
+            Simple Guidance Mechanisms for<br>Language Models
           </h1>
           <div class="is-size-5 publication-authors">
             <!-- Paper authors -->
             <span class="author-block">
-              <a href="https://yair-schiff.github.io/" target="_blank">Yair Schiff<sup>1</sup></a>,
+              <a href="https://yair-schiff.github.io/" target="_blank">Yair Schiff<sup>1</sup></a><sup>*</sup>,
             </span>
             <span class="author-block">
-              <a href="https://s-sahoo.com/" target="_blank">Subham Sekhar Sahoo<sup>1</sup></a>,
+              <a href="https://s-sahoo.com/" target="_blank">Subham Sekhar Sahoo<sup>1</sup></a><sup>*</sup>,
             </span>
             <span class="author-block">
-              <a href="https://hao-pt.github.io/" target="_blank">Hao Phung<sup>1</sup></a>,
+              <a href="https://hao-pt.github.io/" target="_blank">Hao Phung<sup>1</sup></a><sup>*</sup>,
             </span>
             <span class="author-block">
-              <a href="https://www.tech.cornell.edu/people/guanghan-wang/" target="_blank">Guanghan Wang<sup>1</sup></a>,
+              <a href="https://www.tech.cornell.edu/people/guanghan-wang/" target="_blank">Guanghan Wang<sup>1</sup></a><sup>*</sup>,
             </span>
             <span class="author-block">
               <a href="https://www.linkedin.com/in/sam-boshar-6ba68618a/" target="_blank">Sam Boshar<sup>2</sup></a>,
@@ -87,6 +87,9 @@
               InstaDeep&nbsp;
               <img src="static/images/instadeep-logo.png" alt="InstaDeep" style="float:right;width:30px;height:30px;">
             </span>
+          </div>
+          <div class="is-size-5 publication-authors">
+            <sup>*</sup>Equal contribution
           </div>
           <div class="column has-text-centered">
             <div class="publication-links">
@@ -146,13 +149,13 @@
   <div class="container is-max-desktop">
     <h2 class="title">Guidance + Diffusion👌</h2>
     <div class="content is-medium">
-      State-of-the-art diffusion models are the prevailing approach for generating continuous signals, such as images, audio, and even 3D poses.
+      State-of-the-art diffusion models are the prevailing approach for generating continuous signals, such as images and audio.
       These models are made even more useful by the mechanisms of classifier-free and classifier-based guidance that enable users to better control the generated samples.      
       In contrast, for discrete data, autoregressive (AR) models are the go-to approach, but are notoriously difficult to control, given the sequential nature of their generation process that <em>'locks in'</em> tokens during denoising. 
       Diffusion models, which have a global view of a generated signal at each denoising step, as opposed to AR models which can only plan locally (i.e., one token ahead), are arguably more suitable for controlled generation.
       Finding a way to bridge the gap to AR's language modeling performance while maintaining the control mechanisms of diffusion modeling would unlock powerful and useful generative modeling tools with widespread applications, especially in scientific domains.
       <br><br>
-      Recent work on discrete diffusion (e.g., <a href="https://arxiv.org/abs/2406.07524">Sahoo et al., 2024</a>) poses a potential alternative to autoregressive language modeling.
+      Recent work on discrete diffusion (e.g., <a href="https://arxiv.org/abs/2406.07524">Sahoo et al., 2024</a>) poses a potential alternative to AR language modeling.
       The improved performance of non-autoregressive language models inspires a renewed search for guidance mechanisms that, similar to the continuous domain, can unlock high-quality controllable generation for discrete data.
     </div>
   </div>
@@ -182,8 +185,8 @@
     <div class="content is-medium">
       In diffusion, we train a parametric model \(p_\theta\) to undo corruption from latent variables \(\mathbf{z}_t\) (for \(t \in [0, 1]\)) that are produced from a fixed forward noising process defined by \(q\)&nbsp; (<a href="https://arxiv.org/abs/1503.03585">Sohl-Dickstein et al., 2015</a>; <a href="https://arxiv.org/abs/1907.05600">Song & Ermon, 2019</a>; <a href="https://arxiv.org/abs/2006.11239">Ho et al., 2020</a>).
       Thus, starting from a sample \(\mathbf{z}_{t=1}\) from some limiting distribution \(\boldsymbol{\pi}\), we can iteratively denoise to produce latents \(\mathbf{z}_t, \mathbf{z}_s, \ldots, \mathbf{z}_{t=0}, \mathbf{x}_0\), with \(\mathbf{x}_0\) appearing to have been drawn from the true data distribution for well-trained denoising models.
-      <br>
-      
+      <br><br>
+      In discrete diffusion, these variables refer to one-hot variables, i.e., \(\mathbf{x}_0, \mathbf{z}_t \in \mathcal{V}\) where \(\mathcal{V} = \{\mathbf{z} \in \{0, 1\}^N : \sum_i \mathbf{z}_i = 1\} \subset \Delta^N\), with \(\Delta^N\) being the simplex over \(N\) categories (i.e., the vocab size).
       <h4 class="subtitle has-text-centered" style="font-size:1rem;">
         <img src="static/images/discrete_diffusion.png" alt="Discrete Diffusion" style="width:720px">
       </h4>
@@ -227,7 +230,7 @@
     <h2 class="title">Proposed Discrete Guidance Mechanisms</h2>
     <div class="content is-medium">
       To overcome the issues of applying gradient-based guidance mechanisms to discrete diffusion models, we propose two mechanisms for discrete guidance that re-weight the probabilities assigned by the denoising model according to a \(\gamma\)-scaled guidance term.
-      <h3 class="subtitle" style="font-size:1.6rem;"><em>Discrete Classifier-free Guidance</em></h3>
+      <h3 class="subtitle" style="font-size:1.6rem;"><em>Discrete Classifier-Free Guidance</em></h3>
         First, we can achieve classifier-free guidance through a simply derivation that relies on (repeated) applications of Bayes' rule to the tempered distribution \(p_\theta^\gamma(\mathbf{z}_s\mid \mathbf{z}_t, y)\).
         We train a conditional and unconditonal diffusion model, both of which factorize independently across tokens in a sequence in order to sample each token independently from the following distribution:
         $$p_\theta^\gamma(\mathbf{z}_s\mid \mathbf{z}_t, y) \propto p_\theta(\mathbf{z}_s\mid \mathbf{z}_t, y)^\gamma\cdot p_\theta(\mathbf{z}_s \mid \mathbf{z}_t)^{(1-\gamma)}.$$
@@ -241,7 +244,7 @@
       <h4 class="subtitle has-text-centered" style="font-size:1rem;">
         <img src="static/images/discrete_guidance.png" alt="Discrete GUidance" style="width:720px">
       </h4>
-      <h3 class="subtitle" style="font-size:1.6rem;"><em>Discrete Classifier-based Guidance</em></h3>
+      <h3 class="subtitle" style="font-size:1.6rem;"><em>Discrete Classifier-Based Guidance</em></h3>
         Extending classifier-based guidance to diffusion models in a similar manner to above is difficult because the guiding classifier need not factorize the same as the diffusion denoising network, which would imply that the classifier needs to be evaluated on exponentially many sequence combinations.
         We resolve this using factorization assumptions on the decoding model and a Taylor expansion trick.
         <br><br>
@@ -262,7 +265,7 @@
 
 <section class="section" id="UDLM">
   <div class="container is-max-desktop">
-    <h2 class="title">Uniform Discrete Language Models (UDLM)</h2>
+    <h2 class="title">Uniform Diffusion Language Models (UDLM)</h2>
     <div class="content is-medium">
       While masked diffusion models demonstrate better language modeling compared to other discrete diffusion (<a href="https://arxiv.org/abs/2107.03006">Austin et al. 2021</a>; <a href="https://arxiv.org/abs/2310.16834">Lou et al. 2023</a>), we argue that they are less amenable to guidance, since once a token is unmasked at some time t it remains so for all \(s < t\).
       In contrast, with uniform noising, intermediate latents can be refined multiple times throughout the denoising process.
@@ -411,6 +414,7 @@
   <section class="section" id="BibTeX">
     <div class="container is-max-desktop content">
       <h2 class="title">BibTeX</h2>
+      <!--TODO: Update citation -->
       <pre><code>
         @article{schiff2024discreteguidance,
           title={Controllable Discrete Diffusion Language Models},
