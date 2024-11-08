@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <!-- Meta tags for social media banners, these should be filled in appropriatly as they are your "business card" -->
   <!-- Replace the content tag with appropriate information -->
-  <meta name="description" content="Discrete Guidance Project Page">
+  <meta name="description" content="Simple Guidance Mechanisms for Discrete Diffusion Models Project Page">
   <meta property="og:title" content="Discrete Guidance"/>
-  <meta property="og:description" content="Controllable Discrete Diffusion Language Models"/>
+  <meta property="og:description" content="Simple Guidance Mechanisms for Discrete Diffusion Models"/>
   <meta property="og:url" content="https://discrete-guidance.github.io/"/>
   <!-- Path to banner image, should be in the path listed below. Optimal dimenssions are 1200X630-->
   <!-- <meta property="og:image" content="static/images/caduceus.png" /> -->
@@ -41,7 +41,7 @@
       <div class="columns is-centered">
         <div class="column has-text-centered">
           <h1 class="title is-1 publication-title">
-            Simple Guidance Mechanisms for<br>Language Models
+            Simple Guidance Mechanisms for<br>Discrete Diffusion Models
           </h1>
           <div class="is-size-5 publication-authors">
             <!-- Paper authors -->
@@ -186,7 +186,7 @@
       In diffusion, we train a parametric model \(p_\theta\) to undo corruption from latent variables \(\mathbf{z}_t\) (for \(t \in [0, 1]\)) that are produced from a fixed forward noising process defined by \(q\)&nbsp; (<a href="https://arxiv.org/abs/1503.03585">Sohl-Dickstein et al., 2015</a>; <a href="https://arxiv.org/abs/1907.05600">Song & Ermon, 2019</a>; <a href="https://arxiv.org/abs/2006.11239">Ho et al., 2020</a>).
       Thus, starting from a sample \(\mathbf{z}_{t=1}\) from some limiting distribution \(\boldsymbol{\pi}\), we can iteratively denoise to produce latents \(\mathbf{z}_t, \mathbf{z}_s, \ldots, \mathbf{z}_{t=0}, \mathbf{x}_0\), with \(\mathbf{x}_0\) appearing to have been drawn from the true data distribution for well-trained denoising models.
       <br><br>
-      In discrete diffusion, these variables refer to one-hot variables, i.e., \(\mathbf{x}_0, \mathbf{z}_t \in \mathcal{V}\) where \(\mathcal{V} = \{\mathbf{z} \in \{0, 1\}^N : \sum_i \mathbf{z}_i = 1\} \subset \Delta^N\), with \(\Delta^N\) being the simplex over \(N\) categories (i.e., the vocab size).
+      In discrete diffusion, these variables refer to one-hot vectors, i.e., \(\mathbf{x}_0, \mathbf{z}_t \in \mathcal{V}\) where \(\mathcal{V} = \{\mathbf{z} \in \{0, 1\}^N : \sum_i \mathbf{z}_i = 1\} \subset \Delta^N\), with \(\Delta^N\) being the simplex over \(N\) categories (i.e., the vocab size).
       <h4 class="subtitle has-text-centered" style="font-size:1rem;">
         <img src="static/images/discrete_diffusion.png" alt="Discrete Diffusion" style="width:720px">
       </h4>
